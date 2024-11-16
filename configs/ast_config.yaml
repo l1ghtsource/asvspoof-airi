@@ -1,0 +1,9 @@
+model:
+  name: 'MIT/ast-finetuned-audioset-10-10-0.4593' # MattyB95/AST-VoxCelebSpoof-Synthetic-Voice-Detection
+  num_labels: 2
+  sampling_rate: 16000
+  know_stats: True
+  num_epochs: 1
+  learning_rate: 0.00005
+  batch_size: 16
+  time_limit: 8
