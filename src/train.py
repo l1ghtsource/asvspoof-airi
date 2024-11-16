@@ -119,7 +119,6 @@ def train_ast(config):
         save_strategy='steps',
         eval_steps=1,
         save_steps=500,
-        load_best_model_at_end=True,
         metric_for_best_model='accuracy',
         logging_strategy='steps',
         logging_steps=1,
