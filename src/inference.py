@@ -11,7 +11,9 @@ from transformers import (
     TrainingArguments
 )
 from datasets import Audio
-from data.dataset import get_ast_dataset
+from data.dataset import get_ast_dataset, SedDataset
+from src.modules.sed_model import AudioSEDModel
+from utils.seed import seed_everything
 
 
 def inference_ast(config):
@@ -79,3 +81,62 @@ def inference_ast(config):
 
     df['Predicted'] = (df['Predicted'] > 0.5).astype(int)
     df.to_csv('submission_ast.csv', index=False)
+
+
+def inference_sed(config):
+    def test_epoch(config, model, loader):
+        model.eval()
+        pred_list = []
+        id_list = []
+        with torch.no_grad():
+            t = tqdm(loader)
+            for i, sample in enumerate(t):
+                input = sample['image'].to(config['device'])
+                id = sample['id']
+                output = model(input)
+                output = torch.sigmoid(torch.max(output['framewise_output'], dim=1)[0])
+                output = [x[0] for x in output.cpu().numpy().tolist()]
+                pred_list.extend(output)
+                id_list.extend(id)
+
+        return pred_list, id_list
+
+    seed_everything(config['seed'])
+
+    test_dataset = SedDataset(
+        root_dir=config['data_root'],
+        period=config['period'],
+        stride=5,
+        audio_transform=None,
+        mode="test"
+    )
+
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size=config['batch_size'],
+        shuffle=False,
+        drop_last=False,
+        num_workers=config['num_workers']
+    )
+
+    model = AudioSEDModel(**config['model_param'])
+    model = model.to(config['device'])
+
+    if config.pretrain_weights:
+        print("Loading pretrained weights...")
+        model.load_state_dict(torch.load(config['pretrain_weights'], map_location=config['device']), strict=False)
+        model = model.to(config.device)
+
+    test_pred, ids = test_epoch(config, model, test_loader)
+    print(np.array(test_pred).shape)
+
+    test_pred_df = pd.DataFrame({
+        'Id': ids,
+        'Predicted': test_pred
+    })
+    test_pred_df['Id'] = test_pred_df['Id'].astype(int)
+    test_pred_df = test_pred_df.sort_values(by='Id')
+
+    thold = config['thold']
+    test_pred_df['Predicted'] = (test_pred_df['Predicted'] > thold).astype(int)
+    test_pred_df.to_csv('submission.csv', index=False)

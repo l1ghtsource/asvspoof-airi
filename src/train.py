@@ -238,7 +238,7 @@ def train_sed(config):
         # AA.Normalize(p=0.1),
         # AA.ClippingDistortion(min_percentile_threshold=0, max_percentile_threshold=1, p=0.05),
         # AA.PolarityInversion(p=0.05),
-        # AA.Gain(p=0.2)
+        AA.Gain(p=0.2)
     ])
 
     save_path = os.path.join(config['output_dir'], config['exp_name'])

@@ -94,7 +94,7 @@ class SedDataset(Dataset):
                     if file_name.endswith('.wav'):
                         self.samples.append({
                             'path': os.path.join(class_dir, file_name),
-                            'label': 0 if class_name == 'real' else 1,
+                            'label': 1 if class_name == 'real' else 0,
                             'id': os.path.splitext(file_name)[0]
                         })
 

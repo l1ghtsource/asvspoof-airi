@@ -27,3 +27,5 @@ epoch_scheduler: false
 device: 'cuda'
 output_dir: 'weights'
 data_root: 'competiton/audio_split'
+
+thold: 0.7
