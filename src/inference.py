@@ -7,12 +7,17 @@ from tqdm import tqdm
 from transformers import (
     ASTFeatureExtractor,
     ASTForAudioClassification,
+    WhisperFeatureExtractor,
+    WhisperModel,
     Trainer,
     TrainingArguments
 )
+from torch.utils.data import DataLoader
 from datasets import Audio
-from data.dataset import get_ast_dataset, SedDataset
+
+from data.dataset import get_ast_dataset, SedDataset, WhisperTestDataset
 from src.modules.sed_model import AudioSEDModel
+from src.modules.whisper_model import WhisperClassifier
 from utils.seed import seed_everything
 
 
@@ -140,3 +145,48 @@ def inference_sed(config, checkpoint):
     thold = config['thold']
     test_pred_df['Predicted'] = (test_pred_df['Predicted'] < thold).astype(int)
     test_pred_df.to_csv('submission.csv', index=False)
+
+
+def inference_whisper(config, checkpoint):
+    def inference(model, data_loader, device):
+        all_preds = []
+
+        with torch.no_grad():
+            for i, batch in tqdm(enumerate(data_loader), total=len(data_loader)):
+                input_features, decoder_input_ids = batch
+                input_features = input_features.squeeze()
+                input_features = input_features.to(device)
+
+                decoder_input_ids = decoder_input_ids.squeeze()
+                decoder_input_ids = decoder_input_ids.to(device)
+
+                logits = model(input_features, decoder_input_ids)
+                _, preds = torch.max(logits, 1)
+                all_preds.append(preds.cpu().numpy())
+
+        all_preds = np.concatenate(all_preds, axis=0)
+        return all_preds
+
+    dataset = get_ast_dataset()
+    dataset = dataset.cast_column('audio', Audio(sampling_rate=16000))
+
+    model_checkpoint = config['model']['name']
+    feature_extractor = WhisperFeatureExtractor.from_pretrained(model_checkpoint)
+    encoder = WhisperModel.from_pretrained(model_checkpoint)
+
+    device = config['model']['device']
+
+    test_dataset = WhisperTestDataset(dataset["test"], feature_extractor)
+    test_loader = DataLoader(test_dataset, batch_size=config['model']['batch_size'], shuffle=False)
+
+    model = WhisperClassifier(
+        num_labels=config['model']['num_labels'],
+        encoder=encoder,
+        dropout=config['model']['dropout']
+    ).to(device)
+
+    model.load_state_dict(
+        torch.load(checkpoint, map_location=device)
+    )
+
+    preds = inference(model, test_loader, device)
