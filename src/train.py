@@ -453,6 +453,7 @@ def train_whisper(config):
             w1 = config['loss']['w1']
             w2 = config['loss']['w2']
             alpha = torch.tensor([w1, w2], dtype=torch.float)
+        alpha = alpha.to(device)
         criterion = FocalLoss(alpha=alpha, gamma=['loss']['gamma'])
     else:
         raise 'Choose loss from ["ce", "focal"]'
