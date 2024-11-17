@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import time
 import evaluate
+import os
 from tqdm import tqdm
 
 from transformers import (
@@ -10,7 +11,8 @@ from transformers import (
     ASTFeatureExtractor,
     TrainingArguments,
     Trainer,
-    TrainerCallback
+    TrainerCallback,
+    get_linear_schedule_with_warmup
 )
 from audiomentations import (
     Compose,
@@ -19,8 +21,14 @@ from audiomentations import (
     Gain,
     ClippingDistortion
 )
+import audiomentations as AA
 from datasets import Audio
-from data.dataset import get_ast_dataset
+
+from data.dataset import get_ast_dataset, SedDataset
+from modules.losses import PANNsLoss
+from modules.sed_model import AudioSEDModel
+from utils.metrics import AverageMeter, MetricMeter
+from utils.seed import seed_everything
 
 
 def train_ast(config):
@@ -68,15 +76,15 @@ def train_ast(config):
         feature_extractor.do_normalize = True
 
     audio_augmentations = Compose([
-        AddGaussianSNR(min_snr_db=10, max_snr_db=20, p=0.5),
+        # AddGaussianSNR(min_snr_db=10, max_snr_db=20, p=0.5),
         Gain(min_gain_db=-6, max_gain_db=6, p=0.2),
         GainTransition(
             min_gain_db=-6, max_gain_db=6, min_duration=0.01, max_duration=0.3,
             duration_unit='fraction', p=0.2
         ),
-        ClippingDistortion(
-            min_percentile_threshold=0, max_percentile_threshold=30, p=0.1
-        ),
+        # ClippingDistortion(
+        #     min_percentile_threshold=0, max_percentile_threshold=30, p=0.1
+        # ),
     ], p=0.8, shuffle=True)
 
     def preprocess_audio_with_transforms(batch):
@@ -165,3 +173,153 @@ def train_ast(config):
     )
 
     trainer.train()
+
+
+def train_sed(config):
+    def train_epoch_sed(config, model, loader, criterion, optimizer, scheduler, epoch):
+        losses = AverageMeter()
+        scores = MetricMeter()
+
+        model.train()
+        t = tqdm(loader)
+        for i, sample in enumerate(t):
+            optimizer.zero_grad()
+            input = sample['image'].to(config['device'])
+            target = sample['target'].to(config['device'])
+            # mixup = Mixup(mixup_alpha=0.4)
+            # mixup_lambda = mixup.get_lambda(input.size(0) // 2).to(input.device)
+            # output = model(input, mixup_lambda)
+            output = model(input)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+            if scheduler and config['step_scheduler']:
+                scheduler.step()
+
+            bs = input.size(0)
+            scores.update(target, torch.sigmoid(torch.max(output['framewise_output'], dim=1)[0]))
+            losses.update(loss.item(), bs)
+
+            t.set_description(f"Train E:{epoch} - Loss{losses.avg:0.4f}")
+        t.close()
+        return scores.avg, losses.avg
+
+    def valid_epoch_sed(config, model, loader, criterion, epoch):
+        losses = AverageMeter()
+        scores = MetricMeter()
+        model.eval()
+        with torch.no_grad():
+            t = tqdm(loader)
+            for i, sample in enumerate(t):
+                input = sample['image'].to(config['device'])
+                target = sample['target'].to(config['device'])
+                output = model(input)
+                loss = criterion(output, target)
+
+                bs = input.size(0)
+                scores.update(target, torch.sigmoid(torch.max(output['framewise_output'], dim=1)[0]))
+                losses.update(loss.item(), bs)
+                t.set_description(f"Valid E:{epoch} - Loss:{losses.avg:0.4f}")
+        t.close()
+        return scores.avg, losses.avg
+
+    seed_everything(config['seed'])
+
+    train_audio_transform = AA.Compose([
+        AA.AddGaussianNoise(p=0.5),
+        AA.AddGaussianSNR(p=0.5),
+        # AA.AddBackgroundNoise("../input/train_audio/", p=1)
+        # AA.AddImpulseResponse(p=0.1),
+        # AA.AddShortNoises("../input/train_audio/", p=1)
+        # AA.FrequencyMask(min_frequency_band=0.0,  max_frequency_band=0.2, p=0.1),
+        # AA.TimeMask(min_band_part=0.0, max_band_part=0.2, p=0.1),
+        # AA.PitchShift(min_semitones=-0.5, max_semitones=0.5, p=0.1),
+        # AA.Shift(p=0.1),
+        # AA.Normalize(p=0.1),
+        # AA.ClippingDistortion(min_percentile_threshold=0, max_percentile_threshold=1, p=0.05),
+        # AA.PolarityInversion(p=0.05),
+        # AA.Gain(p=0.2)
+    ])
+
+    save_path = os.path.join(config['output_dir'], config['exp_name'])
+    os.makedirs(save_path, exist_ok=True)
+
+    train_dataset = SedDataset(
+        root_dir=config['data_root'],
+        period=config['period'],
+        audio_transform=train_audio_transform,
+        mode="train"
+    )
+
+    valid_dataset = SedDataset(
+        root_dir=config['data_root'],
+        period=config['period'],
+        stride=5,
+        audio_transform=None,
+        mode="validation"
+    )
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=config['batch_size'],
+        shuffle=True,
+        drop_last=True,
+        num_workers=config['num_workers']
+    )
+
+    valid_loader = torch.utils.data.DataLoader(
+        valid_dataset,
+        batch_size=config['batch_size'],
+        shuffle=False,
+        drop_last=False,
+        num_workers=config['num_workers']
+    )
+
+    model = AudioSEDModel(**config['model_param'])
+    model = model.to(config['device'])
+
+    if config.pretrain_weights:
+        print("Loading pretrained weights...")
+        model.load_state_dict(torch.load(config['pretrain_weights'], map_location=config['device']), strict=False)
+        model = model.to(config.device)
+
+    criterion = PANNsLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
+    num_train_steps = int(len(train_loader) * config['epochs'])
+    num_warmup_steps = int(0.1 * config['epochs'] * len(train_loader))
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_train_steps
+    )
+
+    best_metric = -np.inf
+    early_stop_count = 0
+
+    for epoch in range(config['start_epoch'], config['epochs']):
+        train_avg, train_loss = train_epoch_sed(config, model, train_loader, criterion, optimizer, scheduler, epoch)
+        valid_avg, valid_loss = valid_epoch_sed(config, model, valid_loader, criterion, epoch)
+
+        if config['epoch_scheduler']:
+            scheduler.step()
+
+        content = f"""
+                {time.ctime()} \n
+                Epoch:{epoch}, lr:{optimizer.param_groups[0]['lr']:.7}\n
+                Train Loss:{train_loss:0.4f} - ROC AUC:{train_avg['roc_auc']:0.4f}, F1:{train_avg['f1']:0.4f}, Accuracy:{train_avg['accuracy']:0.4f}\n
+                Valid Loss:{valid_loss:0.4f} - ROC AUC:{valid_avg['roc_auc']:0.4f}, F1:{valid_avg['f1']:0.4f}, Accuracy:{valid_avg['accuracy']:0.4f}\n
+        """
+        print(content)
+        with open(f'{save_path}/log_{config['exp_name']}.txt', 'a') as appender:
+            appender.write(content+'\n')
+
+        # save the model if ROC AUC improves
+        if valid_avg['roc_auc'] > best_metric:
+            print(f"########## >>>>>>>> Model Improved From {best_metric} ----> {valid_avg['roc_auc']}")
+            torch.save(model.state_dict(), os.path.join(save_path, 'xdd.bin'))
+            best_metric = valid_avg['roc_auc']
+            early_stop_count = 0
+        else:
+            early_stop_count += 1
+
+        if config['early_stop'] == early_stop_count:
+            print("\n $$$ ---? Ohoo.... we reached early stopping count :", early_stop_count)
+            break
