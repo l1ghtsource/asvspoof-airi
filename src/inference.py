@@ -138,5 +138,5 @@ def inference_sed(config, checkpoint):
     test_pred_df = test_pred_df.sort_values(by='Id')
 
     thold = config['thold']
-    test_pred_df['Predicted'] = (test_pred_df['Predicted'] > thold).astype(int)
+    test_pred_df['Predicted'] = (test_pred_df['Predicted'] < thold).astype(int)
     test_pred_df.to_csv('submission.csv', index=False)
