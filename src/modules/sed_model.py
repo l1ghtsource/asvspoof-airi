@@ -10,10 +10,10 @@ from sed_modules import (
     AttBlock,
     init_layer,
     init_bn,
-    do_mixup,
     interpolate,
     pad_framewise_output
 )
+from augmentations import do_mixup
 
 encoder_params = {
     'tf_efficientnet_b0_ns': {
