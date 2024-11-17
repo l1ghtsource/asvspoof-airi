@@ -4,7 +4,7 @@ exp_name: 'AUDIO_FAKE_DETECTION'
 pretrain_weights: null
 
 model_param:
-  encoder: 'tf_efficientnet_b0_ns'
+  encoder: 'tf_efficientnet_b0_ns_jft_in1k' # ['tf_efficientnet_b0_ns_jft_in1k', 'resnet50_a1_in1k', 'resnext50_32x4d_a1h_in1k', 'regnety_120_sw_in12k_ft_in1k', 'convnext_base_fb_in22k_ft_in1k']
   sample_rate: 22050
   window_size: 512
   hop_size: 512
