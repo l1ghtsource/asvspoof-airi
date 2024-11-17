@@ -16,10 +16,9 @@ from src.modules.sed_model import AudioSEDModel
 from utils.seed import seed_everything
 
 
-def inference_ast(config):
-    pretrained_model = config['model']['name']
-    feature_extractor = ASTFeatureExtractor.from_pretrained(pretrained_model)
-    model = ASTForAudioClassification.from_pretrained(config['model']['checkpoint'])
+def inference_ast(config, checkpoint):
+    feature_extractor = ASTFeatureExtractor.from_pretrained(checkpoint)
+    model = ASTForAudioClassification.from_pretrained(checkpoint)
 
     def preprocess_audio(batch):
         wavs = [audio['array'] for audio in batch['input_values']]
@@ -83,7 +82,7 @@ def inference_ast(config):
     df.to_csv('submission_ast.csv', index=False)
 
 
-def inference_sed(config):
+def inference_sed(config, checkpoint):
     def test_epoch(config, model, loader):
         model.eval()
         pred_list = []
@@ -122,13 +121,14 @@ def inference_sed(config):
     model = AudioSEDModel(**config['model_param'])
     model = model.to(config['device'])
 
-    if config.pretrain_weights:
+    if config['pretrain_weights']:
         print("Loading pretrained weights...")
         model.load_state_dict(torch.load(config['pretrain_weights'], map_location=config['device']), strict=False)
         model = model.to(config.device)
 
+    model.load_state_dict(torch.load(os.path.join(checkpoint), map_location=config['device']))
+
     test_pred, ids = test_epoch(config, model, test_loader)
-    print(np.array(test_pred).shape)
 
     test_pred_df = pd.DataFrame({
         'Id': ids,
