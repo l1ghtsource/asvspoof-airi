@@ -70,21 +70,31 @@ def get_ast_dataset(
 
 
 class WhisperDataset(Dataset):
-    def __init__(self, audio_data, text_processor, encoder):
+    def __init__(self, audio_data, text_processor, encoder, audio_augmentations=None):
         self.audio_data = audio_data
         self.text_processor = text_processor
         self.encoder = encoder
+        self.audio_augmentations = audio_augmentations
 
     def __len__(self):
         return len(self.audio_data)
 
     def __getitem__(self, index):
-
-        inputs = self.text_processor(
-            self.audio_data[index]['audio']['array'],
-            return_tensors='pt',
-            sampling_rate=self.audio_data[index]['audio']['sampling_rate']
-        )
+        if self.audio_augmentations is None:
+            inputs = self.text_processor(
+                self.audio_augmentations(
+                    self.audio_data[index]['audio']['array'],
+                    sampling_rate=self.encoder.sampling_rate
+                ),
+                return_tensors='pt',
+                sampling_rate=self.audio_data[index]['audio']['sampling_rate']
+            )
+        else:
+            inputs = self.text_processor(
+                self.audio_data[index]['audio']['array'],
+                return_tensors='pt',
+                sampling_rate=self.audio_data[index]['audio']['sampling_rate']
+            )
         input_features = inputs.input_features
         decoder_input_ids = torch.tensor([[1, 1]]) * self.encoder.config.decoder_start_token_id
 

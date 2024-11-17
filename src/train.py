@@ -421,7 +421,13 @@ def train_whisper(config):
 
     device = config['model']['device']
 
-    train_dataset = WhisperDataset(dataset['train'], feature_extractor, encoder)
+    audio_augmentations = Compose([
+        AddGaussianSNR(min_snr_db=10, max_snr_db=20, p=0.5),
+        AA.AddGaussianNoise(p=0.5),
+        Gain(min_gain_db=-6, max_gain_db=6, p=0.25),
+    ], p=0.8, shuffle=True)
+
+    train_dataset = WhisperDataset(dataset['train'], feature_extractor, encoder, audio_augmentations)
     val_dataset = WhisperDataset(dataset['val'], feature_extractor, encoder)
 
     train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=True)
