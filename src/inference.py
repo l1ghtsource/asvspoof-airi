@@ -160,9 +160,10 @@ def inference_whisper(config, checkpoint):
                 decoder_input_ids = decoder_input_ids.squeeze()
                 decoder_input_ids = decoder_input_ids.to(device)
 
-                logits = model(input_features, decoder_input_ids)
-                _, preds = torch.max(logits, 1)
-                all_preds.append(preds.cpu().numpy())
+                logits = model(input_features, decoder_input_ids).cpu()
+                probabilities = torch.softmax(torch.tensor(logits), dim=-1).numpy()
+                class_0 = probabilities[:, 0]
+                all_preds.append(class_0)
 
         all_preds = np.concatenate(all_preds, axis=0)
         return all_preds
