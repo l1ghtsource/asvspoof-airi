@@ -168,7 +168,7 @@ def inference_whisper(config, checkpoint):
         return all_preds
 
     dataset = get_ast_dataset()
-    dataset = dataset.cast_column('audio', Audio(sampling_rate=16000))
+    dataset = dataset.cast_column('audio', Audio(sampling_rate=config['model']['sampling_rate']))
 
     model_checkpoint = config['model']['name']
     feature_extractor = WhisperFeatureExtractor.from_pretrained(model_checkpoint)
@@ -176,7 +176,7 @@ def inference_whisper(config, checkpoint):
 
     device = config['model']['device']
 
-    test_dataset = WhisperTestDataset(dataset["test"], feature_extractor)
+    test_dataset = WhisperTestDataset(dataset['test'], feature_extractor)
     test_loader = DataLoader(test_dataset, batch_size=config['model']['batch_size'], shuffle=False)
 
     model = WhisperClassifier(
