@@ -21,6 +21,7 @@ class PANNsLoss(nn.Module):
             torch.zeros_like(input_),
             input_
         )
+        input_ = torch.clamp(input_, min=0.0, max=1.0)
 
         target = target.float()
 
