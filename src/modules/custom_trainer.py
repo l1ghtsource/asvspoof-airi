@@ -23,7 +23,7 @@ class FocalTrainer(Trainer):
         outputs = model(**inputs)
         logits = outputs.get('logits')
 
-        loss_foc = FocalLoss(alpha=self.class_weights)
+        loss_foc = FocalLoss(alpha=self.class_weights, gamma=2)
         loss = loss_foc(logits.squeeze(), labels.squeeze())
         return (loss, outputs) if return_outputs else loss
 
