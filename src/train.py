@@ -34,6 +34,7 @@ from modules.losses import PANNsLoss, FocalLoss
 from modules.sed_model import AudioSEDModel
 from modules.whisper_model import WhisperClassifier
 from modules.custom_trainer import FocalTrainer, TimeLimitCallback
+from utils.compute_cw import compute_class_weights
 from utils.metrics import AverageMeter, MetricMeter
 from utils.seed import seed_everything
 
@@ -443,10 +444,16 @@ def train_whisper(config):
 
     optimizer = AdamW(model.parameters(), lr=config['model']['lr'], betas=(0.9, 0.999), eps=1e-08)
 
-    if config['model']['loss'] == 'ce':
+    if config['loss']['name'] == 'ce':
         criterion = torch.nn.CrossEntropyLoss()
-    elif config['model']['loss'] == 'focal':
-        criterion = FocalLoss()
+    elif config['loss']['name'] == 'focal':
+        if not config['loss']['know_weights']:
+            alpha = compute_class_weights(train_dataset)
+        else:
+            w1 = config['loss']['w1']
+            w2 = config['loss']['w2']
+            alpha = torch.tensor([w1, w2], dtype=torch.float)
+        criterion = FocalLoss(alpha=alpha, gamma=['loss']['gamma'])
     else:
         raise 'Choose loss from ["ce", "focal"]'
 
