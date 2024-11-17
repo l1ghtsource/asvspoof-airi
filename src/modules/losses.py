@@ -87,6 +87,9 @@ class FocalLoss(nn.Module):
             return torch.tensor(0., device=x.device, dtype=x.dtype)
         x = x[unignored_mask]
 
+        if self.alpha is not None:
+            self.alpha = self.alpha.to(x.device)
+
         # compute weighted cross entropy term: -alpha * log(pt)
         # (alpha is already part of self.nll_loss)
         log_p = F.log_softmax(x, dim=-1)
