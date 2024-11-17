@@ -1,0 +1,29 @@
+DEBUG: false
+
+exp_name: 'AUDIO_FAKE_DETECTION'
+pretrain_weights: null
+
+model_param:
+  encoder: 'tf_efficientnet_b0_ns'
+  sample_rate: 22050
+  window_size: 512
+  hop_size: 512
+  mel_bins: 128
+  fmin: 20
+  fmax: 8192
+  classes_num: 1
+
+period: 10
+seed: 52
+start_epoch: 0
+epochs: 50
+lr: 0.001
+batch_size: 64
+num_workers: 4
+early_stop: 10
+step_scheduler: true
+epoch_scheduler: false
+
+device: 'cuda'
+output_dir: 'weights'
+data_root: 'competiton/audio_split'
