@@ -421,9 +421,8 @@ def train_whisper(config):
 
     device = config['model']['device']
 
-    train_dataset = WhisperDataset(dataset['train'], feature_extractor)
-    test_dataset = WhisperDataset(dataset['test'], feature_extractor)
-    val_dataset = WhisperDataset(dataset['val'], feature_extractor)
+    train_dataset = WhisperDataset(dataset['train'], feature_extractor, encoder)
+    val_dataset = WhisperDataset(dataset['val'], feature_extractor, encoder)
 
     train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config['model']['batch_size'], shuffle=False)
