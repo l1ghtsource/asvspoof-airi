@@ -70,7 +70,8 @@ class FocalLoss(nn.Module):
         self.ignore_index = ignore_index
         self.reduction = reduction
         self.nll_loss = nn.NLLLoss(
-            weight=alpha, reduction='none', ignore_index=ignore_index)
+            weight=alpha, reduction='none', ignore_index=ignore_index
+        )
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         if x.ndim > 2:
@@ -83,7 +84,7 @@ class FocalLoss(nn.Module):
         unignored_mask = y != self.ignore_index
         y = y[unignored_mask]
         if len(y) == 0:
-            return torch.tensor(0.)
+            return torch.tensor(0., device=x.device, dtype=x.dtype)
         x = x[unignored_mask]
 
         # compute weighted cross entropy term: -alpha * log(pt)
