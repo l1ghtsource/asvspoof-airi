@@ -80,14 +80,14 @@ class WhisperDataset(Dataset):
         return len(self.audio_data)
 
     def __getitem__(self, index):
-        if self.audio_augmentations is None:
+        if self.audio_augmentations is not None:
             inputs = self.text_processor(
                 self.audio_augmentations(
                     self.audio_data[index]['audio']['array'],
-                    sampling_rate=self.encoder.sampling_rate
+                    sampling_rate=self.audio_data[index]['audio']['sampling_rate']
                 ),
                 return_tensors='pt',
-                sampling_rate=self.audio_data[index]['audio']['sampling_rate']
+                sample_rate=self.audio_data[index]['audio']['sampling_rate']
             )
         else:
             inputs = self.text_processor(
