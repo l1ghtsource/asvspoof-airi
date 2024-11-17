@@ -10,6 +10,6 @@ model:
 loss:
   name: 'ce' # ['ce', 'focal']
   gamma: 2
-  know_weights: false
-  w1: ...
-  w2: ...
+  know_weights: true
+  w1: 4.0
+  w2: 0.5714
