@@ -1,8 +1,8 @@
 import argparse
 import os
 from src.utils.config import load_config
-from src.train import train_ast, train_sed
-from src.inference import inference_ast, inference_sed
+from src.train import train_ast, train_sed, train_whisper
+from src.inference import inference_ast, inference_sed, inference_whisper
 
 
 def parse_args():
@@ -10,9 +10,9 @@ def parse_args():
     parser.add_argument('--mode', type=str, choices=['train', 'inference'], required=True,
                         help='Run mode: train or inference')
     parser.add_argument('--model_type', type=str, default='ast',
-                        help='A type of a model: ["ast", "sed"]')
+                        help='A type of a model: ["ast", "sed", "whisper"]')
     parser.add_argument('--config', type=str, default='configs/ast_config.yaml',
-                        help='Path to config file')
+                        help='Path to config file for selected model')
     parser.add_argument('--checkpoint', type=str, default=None,
                         help='Path to model checkpoint for inference')
     parser.add_argument('--wandb-key', type=str, default=None,
@@ -42,8 +42,15 @@ def main():
             if args.checkpoint is None:
                 raise ValueError('Checkpoint path is required for inference mode')
             inference_sed(config, args.checkpoint)
+    elif args.model_type == 'whisper':
+        if args.mode == 'train':
+            train_whisper(config)
+        else:
+            if args.checkpoint is None:
+                raise ValueError('Checkpoint path is required for inference mode')
+            inference_whisper(config, args.checkpoint)
     else:
-        raise ValueError('A type of a model should be selected from ["ast", "sed"]')
+        raise ValueError('A type of a model should be selected from ["ast", "sed", "whisper"]')
 
 
 if __name__ == '__main__':
