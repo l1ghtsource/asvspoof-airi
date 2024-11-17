@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from functools import partial
 from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 from torchlibrosa.augmentation import SpecAugmentation
-from timm.models.efficientnet import tf_efficientnet_b0_ns
+from timm import create_model
 
 from sed_modules import (
     AttBlock,
@@ -15,11 +15,28 @@ from sed_modules import (
 )
 from augmentations import do_mixup
 
+
 encoder_params = {
-    'tf_efficientnet_b0_ns': {
+    'tf_efficientnet_b0_ns_jft_in1k': {
         'features': 1280,
-        'init_op': partial(tf_efficientnet_b0_ns, pretrained=True, drop_path_rate=0.2)
-    }
+        'init_op': partial(create_model, 'tf_efficientnet_b0.ns_jft_in1k', pretrained=True, drop_path_rate=0.1)
+    },
+    'resnet50_a1_in1k': {
+        'features': 2048,
+        'init_op': partial(create_model, 'resnet50.a1_in1k', pretrained=True, drop_path_rate=0.1)
+    },
+    'resnext50_32x4d_a1h_in1k': {
+        'features': 2048,
+        'init_op': partial(create_model, 'resnext50_32x4d.a1h_in1k', pretrained=True, drop_path_rate=0.1)
+    },
+    'regnety_120_sw_in12k_ft_in1k': {
+        'features': 2240,
+        'init_op': partial(create_model, 'regnety_120.sw_in12k_ft_in1k', pretrained=True, drop_path_rate=0.1)
+    },
+    'convnext_base_fb_in22k_ft_in1k': {
+        'features': 1024,
+        'init_op': partial(create_model, 'convnext_base.fb_in22k_ft_in1k', pretrained=True, drop_path_rate=0.1)
+    },
 }
 
 
