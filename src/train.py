@@ -137,8 +137,9 @@ def train_ast(config):
     recall = evaluate.load('recall')
     precision = evaluate.load('precision')
     f1 = evaluate.load('f1')
+    # roc_auc = evaluate.load('roc_auc')
 
-    AVERAGE = 'macro' if config_.num_labels > 2 else 'binary'
+    AVERAGE = 'binary'
 
     def compute_metrics(eval_pred):
         logits = eval_pred.predictions
@@ -147,6 +148,7 @@ def train_ast(config):
         metrics.update(precision.compute(predictions=predictions, references=eval_pred.label_ids, average=AVERAGE))
         metrics.update(recall.compute(predictions=predictions, references=eval_pred.label_ids, average=AVERAGE))
         metrics.update(f1.compute(predictions=predictions, references=eval_pred.label_ids, average=AVERAGE))
+        # metrics.update(roc_auc.compute(predictions=logits[:, 1], references=eval_pred.label_ids))
         return metrics
 
     # class_weights = [0.7, 1.3] # example
