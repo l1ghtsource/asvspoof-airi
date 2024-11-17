@@ -1,4 +1,6 @@
 from datasets import Dataset, DatasetDict, Audio, ClassLabel, Features
+import numpy as np
+import soundfile as sf
 import os
 
 
@@ -64,3 +66,105 @@ def get_ast_dataset(
     })
 
     return dataset
+
+
+class SedDataset(Dataset):
+    def __init__(self, root_dir, period=10, stride=5, audio_transform=None, mode="train"):
+        self.period = period
+        self.stride = stride
+        self.audio_transform = audio_transform
+        self.mode = mode
+
+        self.samples = []
+
+        if mode == "test":
+            test_dir = os.path.join(root_dir, 'test')
+            for file_name in os.listdir(test_dir):
+                if file_name.endswith('.wav'):
+                    self.samples.append({
+                        'path': os.path.join(test_dir, file_name),
+                        'label': None,
+                        'id': os.path.splitext(file_name)[0]
+                    })
+        else:
+            mode_dir = os.path.join(root_dir, mode)
+            for class_name in ['real', 'fake']:
+                class_dir = os.path.join(mode_dir, class_name)
+                for file_name in os.listdir(class_dir):
+                    if file_name.endswith('.wav'):
+                        self.samples.append({
+                            'path': os.path.join(class_dir, file_name),
+                            'label': 0 if class_name == 'real' else 1,
+                            'id': os.path.splitext(file_name)[0]
+                        })
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+        y, sr = sf.read(sample['path'])
+
+        # if self.mode == "test":
+        #     effective_length = self.period * sr
+        #     stride_length = self.stride * sr
+
+        #     n_windows = (len(y) - effective_length) // stride_length + 1
+
+        #     windows = []
+        #     for i in range(n_windows):
+        #         start = i * stride_length
+        #         end = start + effective_length
+        #         window = y[start:end]
+        #         if len(window) == effective_length:
+        #             windows.append(window)
+
+        #     y = np.stack([window.astype(np.float32) for window in windows])
+        #     label = np.array([0], dtype=np.float32)
+
+        # else:
+        #     if len(y) > self.period * sr:
+        #         if self.mode == "train":
+        #             start = np.random.randint(0, len(y) - self.period * sr)
+        #         else:
+        #             start = (len(y) - self.period * sr) // 2
+        #         y = y[start:start + self.period * sr]
+        #     else:
+        #         pad_length = self.period * sr - len(y)
+        #         y = np.pad(y, (0, pad_length), mode='constant')
+
+        #     y = y.astype(np.float32)
+        #     label = np.array([sample["label"]], dtype=np.float32)
+
+        if self.mode == 'test':
+            if len(y) > self.period * sr:
+                start = (len(y) - self.period * sr) // 2
+                y = y[start:start + self.period * sr]
+            else:
+                pad_length = self.period * sr - len(y)
+                y = np.pad(y, (0, pad_length), mode='constant')
+
+            y = y.astype(np.float32)
+            label = np.array([0], dtype=np.float32)
+        else:
+            if len(y) > self.period * sr:
+                if self.mode == 'train':
+                    start = np.random.randint(0, len(y) - self.period * sr)
+                else:
+                    start = (len(y) - self.period * sr) // 2
+                y = y[start:start + self.period * sr]
+            else:
+                pad_length = self.period * sr - len(y)
+                y = np.pad(y, (0, pad_length), mode='constant')
+
+            y = y.astype(np.float32)
+            label = np.array([sample['label']], dtype=np.float32)
+
+        if self.audio_transform:
+            y = self.audio_transform(samples=y, sample_rate=sr)
+
+        return {
+            'image': y,
+            'target': label,
+            'id': sample['id']
+        }
