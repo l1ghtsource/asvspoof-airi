@@ -375,6 +375,7 @@ def train_whisper(config):
                 Val F1: {val_f1: .4f},
                 Best Accuracy: {best_accuracy: .4f}'
             )
+            print("===========" * 8)
 
     def evaluate(model, data_loader,  device):
         all_labels = []
@@ -414,6 +415,7 @@ def train_whisper(config):
         return loss, accuracy, f1, all_labels, all_preds
 
     dataset = get_ast_dataset()
+    dataset = dataset.cast_column('audio', Audio(sampling_rate=config['model']['sampling_rate']))
 
     model_checkpoint = config['model']['name']
     feature_extractor = WhisperFeatureExtractor.from_pretrained(model_checkpoint)

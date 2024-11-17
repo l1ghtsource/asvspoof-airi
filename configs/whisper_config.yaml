@@ -6,3 +6,4 @@ model:
   loss: 'ce' # ['ce', 'focal']
   num_epochs: 1
   device: 'cuda'
+  sampling_rate: 16000
