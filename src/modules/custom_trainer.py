@@ -29,16 +29,14 @@ class FocalTrainer(Trainer):
 
 
 class TimeLimitCallback(TrainerCallback):
-    def __init__(self, max_time_in_seconds):
-        self.max_time_in_seconds = max_time_in_seconds
+    def __init__(self, time_limit_hours):
+        self.time_limit_seconds = time_limit_hours * 3600  # Convert hours to seconds
         self.start_time = None
 
     def on_train_begin(self, args, state, control, **kwargs):
-        self.start_time = time.time()  # start the timer when training begins
+        self.start_time = time.time()
 
     def on_step_end(self, args, state, control, **kwargs):
         elapsed_time = time.time() - self.start_time
-        if elapsed_time > self.max_time_in_seconds:
-            print(f"Stopping training after {self.max_time_in_seconds / 3600} hours.")
-            control.should_early_stop = True  # stop the training
-            control.should_save = True  # optionally save the model at the end
+        if elapsed_time >= self.time_limit_seconds:
+            control.should_training_stop = True

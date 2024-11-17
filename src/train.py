@@ -176,7 +176,7 @@ def train_ast(config):
         train_dataset=dataset['train'],
         eval_dataset=dataset['val'],
         compute_metrics=compute_metrics,  # use the metrics function from above
-        callbacks=[TimeLimitCallback(max_time_in_seconds=3600*config['model']['time_limit'])]  # 8 hours
+        callbacks=[TimeLimitCallback(time_limit_hours=config['model']['time_limit'])]  # 8 hours
     )
 
     trainer.train()
