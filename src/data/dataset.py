@@ -2,6 +2,7 @@ from datasets import Dataset, DatasetDict, Audio, ClassLabel, Features
 import numpy as np
 import soundfile as sf
 import os
+import torch
 
 
 def load_data_from_directory(data_dir, label):
@@ -66,6 +67,30 @@ def get_ast_dataset(
     })
 
     return dataset
+
+
+class WhisperDataset(Dataset):
+    def __init__(self, audio_data, text_processor, encoder):
+        self.audio_data = audio_data
+        self.text_processor = text_processor
+        self.encoder = encoder
+
+    def __len__(self):
+        return len(self.audio_data)
+
+    def __getitem__(self, index):
+
+        inputs = self.text_processor(
+            self.audio_data[index]['audio']['array'],
+            return_tensors='pt',
+            sampling_rate=self.audio_data[index]['audio']['sampling_rate']
+        )
+        input_features = inputs.input_features
+        decoder_input_ids = torch.tensor([[1, 1]]) * self.encoder.config.decoder_start_token_id
+
+        labels = np.array(self.audio_data[index]['labels'])
+
+        return input_features, decoder_input_ids, torch.tensor(labels)
 
 
 class SedDataset(Dataset):

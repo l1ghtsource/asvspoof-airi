@@ -4,15 +4,19 @@ import time
 import evaluate
 import os
 from tqdm import tqdm
+from sklearn.metrics import f1_score, accuracy_score
 
 from transformers import (
     ASTConfig,
     ASTForAudioClassification,
     ASTFeatureExtractor,
+    WhisperModel,
+    WhisperFeatureExtractor,
     TrainingArguments,
     Trainer,
     TrainerCallback,
-    get_linear_schedule_with_warmup
+    get_linear_schedule_with_warmup,
+    AdamW
 )
 from audiomentations import (
     Compose,
@@ -22,11 +26,13 @@ from audiomentations import (
     ClippingDistortion
 )
 import audiomentations as AA
+from torch.utils.data import DataLoader
 from datasets import Audio
 
-from data.dataset import get_ast_dataset, SedDataset
-from modules.losses import PANNsLoss
+from data.dataset import get_ast_dataset, SedDataset, WhisperDataset
+from modules.losses import PANNsLoss, FocalLoss
 from modules.sed_model import AudioSEDModel
+from modules.whisper_model import WhisperClassifier
 from modules.custom_trainer import FocalTrainer, TimeLimitCallback
 from utils.metrics import AverageMeter, MetricMeter
 from utils.seed import seed_everything
@@ -323,3 +329,112 @@ def train_sed(config):
         if config['early_stop'] == early_stop_count:
             print("\n $$$ ---? Ohoo.... we reached early stopping count :", early_stop_count)
             break
+
+
+def train_whisper(config):
+    def train(model, train_loader, val_loader, optimizer,  criterion, device, num_epochs):
+        best_accuracy = 0.0
+
+        for epoch in range(num_epochs):
+            model.train()
+            for i, batch in enumerate(train_loader):
+                input_features, decoder_input_ids, labels = batch
+                input_features = input_features.squeeze()
+                input_features = input_features.to(device)
+
+                decoder_input_ids = decoder_input_ids.squeeze()
+                decoder_input_ids = decoder_input_ids.to(device)
+
+                labels = labels.view(-1)
+                labels = labels.to(device)
+
+                optimizer.zero_grad()
+
+                logits = model(input_features, decoder_input_ids)
+
+                loss = criterion(logits, labels)
+                loss.backward()
+
+                optimizer.step()
+
+                if (i+1) % 8 == 0:
+                    print(f'Epoch {epoch+1}/{num_epochs}, Batch {i+1}/{len(train_loader)}, Train Loss: {loss.item() :.4f}')
+                    train_loss = 0.0
+
+            val_loss, val_accuracy, val_f1, _, _ = evaluate(model, val_loader, device)
+
+            if val_accuracy > best_accuracy:
+                best_accuracy = val_accuracy
+                torch.save(model.state_dict(), 'best_model.pt')
+
+            print("===========" * 8)
+            print(
+                f'Epoch {epoch+1}/{num_epochs},
+                Val Loss: {val_loss: .4f},
+                Val Accuracy: {val_accuracy: .4f},
+                Val F1: {val_f1: .4f},
+                Best Accuracy: {best_accuracy: .4f}'
+            )
+
+    def evaluate(model, data_loader,  device):
+        all_labels = []
+        all_preds = []
+        total_loss = 0.0
+
+        with torch.no_grad():
+            for i, batch in enumerate(data_loader):
+                input_features, decoder_input_ids, labels = batch
+                input_features = input_features.squeeze()
+                input_features = input_features.to(device)
+
+                decoder_input_ids = decoder_input_ids.squeeze()
+                decoder_input_ids = decoder_input_ids.to(device)
+
+                labels = labels.view(-1)
+                labels = labels.to(device)
+
+                optimizer.zero_grad()
+
+                logits = model(input_features, decoder_input_ids)
+
+                loss = criterion(logits, labels)
+                total_loss += loss.item()
+
+                _, preds = torch.max(logits, 1)
+                all_labels.append(labels.cpu().numpy())
+                all_preds.append(preds.cpu().numpy())
+
+        all_labels = np.concatenate(all_labels, axis=0)
+        all_preds = np.concatenate(all_preds, axis=0)
+
+        loss = total_loss / len(data_loader)
+        accuracy = accuracy_score(all_labels, all_preds)
+        f1 = f1_score(all_labels, all_preds, average='macro')
+
+        return loss, accuracy, f1, all_labels, all_preds
+
+    dataset = get_ast_dataset()
+
+    model_checkpoint = config['model']['name']
+    feature_extractor = WhisperFeatureExtractor.from_pretrained(model_checkpoint)
+    encoder = WhisperModel.from_pretrained(model_checkpoint)
+
+    device = config['model']['device']
+
+    train_dataset = WhisperDataset(dataset['train'], feature_extractor)
+    test_dataset = WhisperDataset(dataset['test'], feature_extractor)
+    val_dataset = WhisperDataset(dataset['val'], feature_extractor)
+
+    train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=config['model']['batch_size'], shuffle=False)
+
+    model = WhisperClassifier(config['model']['num_labels'], encoder).to(device)
+    optimizer = AdamW(model.parameters(), lr=config['model']['lr'], betas=(0.9, 0.999), eps=1e-08)
+
+    if config['model']['loss'] == 'ce':
+        criterion = torch.nn.CrossEntropyLoss()
+    elif config['model']['loss'] == 'focal':
+        criterion = FocalLoss()
+
+    num_epochs = config['model']['num_epochs']
+    train(model, train_loader, val_loader, optimizer, criterion, device, num_epochs)

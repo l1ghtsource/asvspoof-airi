@@ -1,0 +1,8 @@
+model:
+  name: 'openai/whisper-base' # any 'openai/whisper-...'
+  batch_size: 8
+  lr: 0.00002
+  num_labels: 2
+  loss: 'ce' # ['ce', 'focal']
+  num_epochs: 1
+  device: 'cuda'
