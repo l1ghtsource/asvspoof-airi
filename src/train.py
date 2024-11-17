@@ -27,6 +27,7 @@ from datasets import Audio
 from data.dataset import get_ast_dataset, SedDataset
 from modules.losses import PANNsLoss
 from modules.sed_model import AudioSEDModel
+from modules.custom_trainer import FocalTrainer, TimeLimitCallback
 from utils.metrics import AverageMeter, MetricMeter
 from utils.seed import seed_everything
 
@@ -148,20 +149,17 @@ def train_ast(config):
         metrics.update(f1.compute(predictions=predictions, references=eval_pred.label_ids, average=AVERAGE))
         return metrics
 
-    class TimeLimitCallback(TrainerCallback):
-        def __init__(self, max_time_in_seconds):
-            self.max_time_in_seconds = max_time_in_seconds
-            self.start_time = None
+    # class_weights = [0.7, 1.3] # example
 
-        def on_train_begin(self, args, state, control, **kwargs):
-            self.start_time = time.time()  # start the timer when training begins
-
-        def on_step_end(self, args, state, control, **kwargs):
-            elapsed_time = time.time() - self.start_time
-            if elapsed_time > self.max_time_in_seconds:
-                print(f"Stopping training after {self.max_time_in_seconds / 3600} hours.")
-                control.should_early_stop = True  # stop the training
-                control.should_save = True  # optionally save the model at the end
+    # trainer = FocalTrainer(
+    #     model=model,
+    #     args=training_args,
+    #     train_dataset=dataset['train'],
+    #     eval_dataset=dataset['val'],
+    #     compute_metrics=compute_metrics,  # use the metrics function from above
+    #     class_weights=class_weights,
+    #     callbacks=[TimeLimitCallback(max_time_in_seconds=3600*config['model']['time_limit'])]  # 8 hours
+    # )
 
     trainer = Trainer(
         model=model,
