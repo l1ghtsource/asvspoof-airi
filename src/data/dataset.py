@@ -69,7 +69,7 @@ def get_ast_dataset(
     return dataset
 
 
-class WhisperDataset(Dataset):
+class WhisperDataset(torch.utils.data.Dataset):
     def __init__(self, audio_data, text_processor, encoder, audio_augmentations=None):
         self.audio_data = audio_data
         self.text_processor = text_processor
@@ -125,7 +125,7 @@ class WhisperTestDataset(torch.utils.data.Dataset):
         return input_features, decoder_input_ids
 
 
-class SedDataset(Dataset):
+class SedDataset(torch.utils.data.Dataset):
     def __init__(self, root_dir, period=10, stride=5, audio_transform=None, mode="train"):
         self.period = period
         self.stride = stride
@@ -134,7 +134,7 @@ class SedDataset(Dataset):
 
         self.samples = []
 
-        if mode == "test":
+        if mode == 'test':
             test_dir = os.path.join(root_dir, 'test')
             for file_name in os.listdir(test_dir):
                 if file_name.endswith('.wav'):
