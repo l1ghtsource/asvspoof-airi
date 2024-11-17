@@ -191,3 +191,15 @@ def inference_whisper(config, checkpoint):
     )
 
     preds = inference(model, test_loader, device)
+
+    test_dir = config['data']['test_dir']
+    test_audio_files = [os.path.join(test_dir, file) for file in os.listdir(test_dir) if file.endswith('.wav')]
+    idxs = [int(test_audio_files[i].split('/')[-1][:-4]) for i in range(len(test_audio_files))]
+
+    df = pd.DataFrame({
+        'Id': idxs,
+        'Predicted': preds
+    }).sort_values(by=['Id'])
+    df.Predicted = (df.Predicted > 0.5).astype(int)
+
+    df.to_csv('submission.csv', index=False)
