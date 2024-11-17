@@ -427,13 +427,20 @@ def train_whisper(config):
     train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config['model']['batch_size'], shuffle=False)
 
-    model = WhisperClassifier(config['model']['num_labels'], encoder).to(device)
+    model = WhisperClassifier(
+        num_labels=config['model']['num_labels'],
+        encoder=encoder,
+        dropout=config['model']['dropout']
+    ).to(device)
+
     optimizer = AdamW(model.parameters(), lr=config['model']['lr'], betas=(0.9, 0.999), eps=1e-08)
 
     if config['model']['loss'] == 'ce':
         criterion = torch.nn.CrossEntropyLoss()
     elif config['model']['loss'] == 'focal':
         criterion = FocalLoss()
+    else:
+        raise 'Choose loss from ["ce", "focal"]'
 
     num_epochs = config['model']['num_epochs']
     train(model, train_loader, val_loader, optimizer, criterion, device, num_epochs)
