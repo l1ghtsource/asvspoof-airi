@@ -13,3 +13,6 @@ loss:
   know_weights: true
   w1: 4.0
   w2: 0.5714
+
+data:
+  aug: true

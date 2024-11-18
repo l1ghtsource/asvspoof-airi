@@ -81,9 +81,9 @@ class WhisperClassifier(nn.Module):
         return logits
 
 
-class RofloWhisperClassifier(nn.Module):
+class SimpleWhisperClassifierV1(nn.Module):
     def __init__(self, num_labels, encoder, dropout=0.1):
-        super(WhisperClassifier, self).__init__()
+        super(SimpleWhisperClassifierV1, self).__init__()
         self.encoder = encoder
         self.head = nn.Sequential(
             nn.Linear(self.encoder.config.hidden_size, 4096),
@@ -101,4 +101,28 @@ class RofloWhisperClassifier(nn.Module):
         outputs = self.encoder(input_features, decoder_input_ids=decoder_input_ids)
         pooled_output = outputs['last_hidden_state'][:, 0, :]
         logits = self.head(pooled_output)
+        return logits
+
+
+class SimpleWhisperClassifierV2(nn.Module):
+    def __init__(self, num_labels, encoder, dropout=0.1):
+        super(SimpleWhisperClassifierV2, self).__init__()
+        self.encoder = encoder
+        self.dropout = dropout
+        self.classifier = nn.Sequential(
+            nn.Linear(self.encoder.config.hidden_size, 4096),
+            nn.LayerNorm(4096),
+            nn.Linear(4096, 2048),
+            nn.GELU(),
+            nn.Dropout(self.dropout),
+            nn.LayerNorm(2048),
+            nn.Linear(2048, 1024),
+            nn.GELU(),
+            nn.Linear(1024, num_labels),
+        )
+
+    def forward(self, input_features, decoder_input_ids):
+        outputs = self.encoder(input_features, decoder_input_ids=decoder_input_ids)
+        pooled_output = outputs['last_hidden_state'][:, 0, :]
+        logits = self.classifier(pooled_output)
         return logits
