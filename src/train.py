@@ -32,7 +32,7 @@ from datasets import Audio
 from data.dataset import get_ast_dataset, SedDataset, WhisperDataset
 from modules.losses import PANNsLoss, FocalLoss
 from modules.sed_model import AudioSEDModel
-from modules.whisper_model import WhisperClassifier
+from modules.whisper_model import WhisperClassifier, SimpleWhisperClassifierV1, SimpleWhisperClassifierV2
 from modules.custom_trainer import FocalTrainer, TimeLimitCallback
 from utils.compute_cw import compute_class_weights
 from utils.metrics import AverageMeter, MetricMeter
@@ -436,11 +436,26 @@ def train_whisper(config):
     train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config['model']['batch_size'], shuffle=False)
 
-    model = WhisperClassifier(
-        num_labels=config['model']['num_labels'],
-        encoder=encoder,
-        dropout=config['model']['dropout']
-    ).to(device)
+    if config['model']['type'] == 'classic':
+        model = WhisperClassifier(
+            num_labels=config['model']['num_labels'],
+            encoder=encoder,
+            dropout=config['model']['dropout']
+        ).to(device)
+    elif config['model']['type'] == 'simplev1':
+        model = SimpleWhisperClassifierV1(
+            num_labels=config['model']['num_labels'],
+            encoder=encoder,
+            dropout=config['model']['dropout']
+        ).to(device)
+    elif config['model']['type'] == 'simplev2':
+        model = SimpleWhisperClassifierV2(
+            num_labels=config['model']['num_labels'],
+            encoder=encoder,
+            dropout=config['model']['dropout']
+        ).to(device)
+    else:
+        raise 'Choose model from ["classic", "simplev1", "simplev2]'
 
     optimizer = AdamW(model.parameters(), lr=config['model']['lr'], betas=(0.9, 0.999), eps=1e-08)
 
