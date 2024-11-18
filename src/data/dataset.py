@@ -84,10 +84,10 @@ class WhisperDataset(torch.utils.data.Dataset):
             inputs = self.text_processor(
                 self.audio_augmentations(
                     self.audio_data[index]['audio']['array'],
-                    sampling_rate=self.audio_data[index]['audio']['sampling_rate']
+                    sample_rate=self.audio_data[index]['audio']['sampling_rate']
                 ),
                 return_tensors='pt',
-                sample_rate=self.audio_data[index]['audio']['sampling_rate']
+                sampling_rate=self.audio_data[index]['audio']['sampling_rate']
             )
         else:
             inputs = self.text_processor(
