@@ -428,28 +428,9 @@ def train_whisper(config):
         AA.AddGaussianSNR(min_snr_db=10, max_snr_db=20, p=0.5),
         AA.AddGaussianNoise(p=0.5),
         AA.Gain(min_gain_db=-6, max_gain_db=6, p=0.25),
-    ], p=1, shuffle=True)
+    ], p=config['data']['aug_proba'], shuffle=True)
 
-    if config['data']['aug']:
-        original_data = dataset['train']
-        augmented_data = [
-            {
-                'audio': {
-                    'array': audio_augmentations(
-                        item['audio']['array'],
-                        sample_rate=item['audio']['sampling_rate']
-                    ),
-                    'sampling_rate': item['audio']['sampling_rate']
-                },
-                'labels': item['labels']
-            }
-            for item in original_data
-        ]
-
-        combined_train_data = original_data + augmented_data
-        train_dataset = WhisperDataset(combined_train_data, feature_extractor)
-    else:
-        train_dataset = WhisperDataset(dataset['train'], feature_extractor)
+    train_dataset = WhisperDataset(dataset['train'], feature_extractor, audio_augmentations)
     val_dataset = WhisperDataset(dataset['val'], feature_extractor, encoder)
 
     train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=True)

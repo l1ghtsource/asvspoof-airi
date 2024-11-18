@@ -15,4 +15,4 @@ loss:
   w2: 0.5714
 
 data:
-  aug: true
+  aug_proba: 0.5
