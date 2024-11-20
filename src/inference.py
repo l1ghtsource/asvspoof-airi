@@ -209,7 +209,7 @@ def inference_whisper(config, checkpoint):
 
 
 def inference_hubert(config, checkpoint):
-    feature_extractor = AutoFeatureExtractor.from_pretrained(checkpoint)
+    feature_extractor = AutoFeatureExtractor.from_pretrained(checkpoint, return_attention_mask=True)
     model = HubertForSequenceClassification.from_pretrained(checkpoint)
     MAX_DURATION = config['model']['max_duration']
     INPUT_NAME = feature_extractor.model_input_names[0]
@@ -225,7 +225,13 @@ def inference_hubert(config, checkpoint):
             padding=True,
             return_attention_mask=True
         )
-        return {INPUT_NAME: inputs[INPUT_NAME]}
+
+        output_batch = {
+            INPUT_NAME: inputs.get(INPUT_NAME),
+            'attention_mask': inputs.get('attention_mask')
+        }
+
+        return output_batch
 
     feature_extractor.do_normalize = False  # we set normalization to False in order to calculate the mean + std of the dataset
     mean = []
@@ -259,6 +265,7 @@ def inference_hubert(config, checkpoint):
 
     trainer = Trainer(
         model=model,
+        tokenizer=feature_extractor,
         args=TrainingArguments(
             output_dir='./results',
             per_device_eval_batch_size=128

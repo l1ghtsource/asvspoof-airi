@@ -485,7 +485,7 @@ def train_hubert(config):
     dataset = dataset.cast_column('audio', Audio(sampling_rate=config['model']['sampling_rate']))
     num_labels = config['model']['num_labels']
     pretrained_model = config['model']['name']
-    feature_extractor = AutoFeatureExtractor.from_pretrained(pretrained_model)
+    feature_extractor = AutoFeatureExtractor.from_pretrained(pretrained_model, return_attention_mask=True)
     model_input_name = feature_extractor.model_input_names[0]  # key -> 'input_values'
     SAMPLING_RATE = feature_extractor.sampling_rate
     MAX_DURATION = config['model']['max_duration']
@@ -499,10 +499,16 @@ def train_hubert(config):
             return_tensors='pt',
             max_length=int(SAMPLING_RATE * MAX_DURATION),
             truncation=True,
-            padding=True
+            padding=True,
+            return_attention_mask=True
         )
 
-        output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['labels'])}
+        output_batch = {
+            model_input_name: inputs.get(model_input_name),
+            'labels': list(batch['labels']),
+            'attention_mask': inputs.get('attention_mask')
+        }
+
         return output_batch
 
     dataset = dataset.rename_column('audio', 'input_values')  # rename audio column
@@ -553,10 +559,15 @@ def train_hubert(config):
             return_tensors='pt',
             max_length=int(SAMPLING_RATE * MAX_DURATION),
             truncation=True,
-            padding=True
+            padding=True,
+            return_attention_mask=True
         )
 
-        output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['labels'])}
+        output_batch = {
+            model_input_name: inputs.get(model_input_name),
+            'labels': list(batch['labels']),
+            'attention_mask': inputs.get('attention_mask')
+        }
 
         return output_batch
 
@@ -625,6 +636,7 @@ def train_hubert(config):
     #     eval_dataset=dataset['val'],
     #     compute_metrics=compute_metrics,  # use the metrics function from above
     #     class_weights=class_weights,
+    #     tokenizer=feature_extractor,
     #     callbacks=[TimeLimitCallback(time_limit_hours=config['model']['time_limit'])]  # 8 hours
     # )
 
@@ -634,6 +646,7 @@ def train_hubert(config):
         train_dataset=dataset['train'],
         eval_dataset=dataset['val'],
         compute_metrics=compute_metrics,  # use the metrics function from above
+        tokenizer=feature_extractor,
         callbacks=[TimeLimitCallback(time_limit_hours=config['model']['time_limit'])]  # 8 hours
     )
 
