@@ -7,6 +7,8 @@ from tqdm import tqdm
 from transformers import (
     ASTFeatureExtractor,
     ASTForAudioClassification,
+    AutoFeatureExtractor,
+    HubertForSequenceClassification,
     WhisperFeatureExtractor,
     WhisperModel,
     Trainer,
@@ -24,11 +26,12 @@ from utils.seed import seed_everything
 def inference_ast(config, checkpoint):
     feature_extractor = ASTFeatureExtractor.from_pretrained(checkpoint)
     model = ASTForAudioClassification.from_pretrained(checkpoint)
+    INPUT_NAME = feature_extractor.model_input_names[0]
 
     def preprocess_audio(batch):
-        wavs = [audio['array'] for audio in batch['input_values']]
+        wavs = [audio['array'] for audio in batch[INPUT_NAME]]
         inputs = feature_extractor(wavs, sampling_rate=feature_extractor.sampling_rate, return_tensors='pt')
-        return {'input_values': inputs['input_values']}
+        return {INPUT_NAME: inputs[INPUT_NAME]}
 
     feature_extractor.do_normalize = False  # we set normalization to False in order to calculate the mean + std of the dataset
     mean = []
@@ -45,8 +48,8 @@ def inference_ast(config, checkpoint):
         for i, (audio_input, labels) in tqdm(enumerate(dataset['train']),
                                              total=len(dataset['train']),
                                              desc='Processing Audio'):
-            cur_mean = torch.mean(dataset["train"][i][audio_input])
-            cur_std = torch.std(dataset["train"][i][audio_input])
+            cur_mean = torch.mean(dataset['train'][i][audio_input])
+            cur_std = torch.std(dataset['train'][i][audio_input])
             mean.append(cur_mean)
             std.append(cur_std)
 
@@ -57,7 +60,7 @@ def inference_ast(config, checkpoint):
     test_dataset = dataset['test']
     test_dataset = test_dataset.cast_column('audio', Audio(sampling_rate=feature_extractor.sampling_rate))
 
-    test_dataset = test_dataset.rename_column('audio', 'input_values')
+    test_dataset = test_dataset.rename_column('audio', INPUT_NAME)
     test_dataset.set_transform(preprocess_audio, output_all_columns=False)
 
     trainer = Trainer(
@@ -144,7 +147,7 @@ def inference_sed(config, checkpoint):
 
     thold = config['thold']
     test_pred_df['Predicted'] = (test_pred_df['Predicted'] < thold).astype(int)
-    test_pred_df.to_csv('submission.csv', index=False)
+    test_pred_df.to_csv('submission_sed.csv', index=False)
 
 
 def inference_whisper(config, checkpoint):
@@ -202,4 +205,80 @@ def inference_whisper(config, checkpoint):
     }).sort_values(by=['Id'])
     df.Predicted = (df.Predicted > 0.5).astype(int)
 
-    df.to_csv('submission.csv', index=False)
+    df.to_csv('submission_whisper.csv', index=False)
+
+
+def inference_hubert(config, checkpoint):
+    feature_extractor = AutoFeatureExtractor.from_pretrained(checkpoint)
+    model = HubertForSequenceClassification.from_pretrained(checkpoint)
+    MAX_DURATION = config['model']['max_duration']
+    INPUT_NAME = feature_extractor.model_input_names[0]
+
+    def preprocess_audio(batch):
+        wavs = [audio['array'] for audio in batch[INPUT_NAME]]
+        inputs = feature_extractor(
+            wavs,
+            sampling_rate=feature_extractor.sampling_rate,
+            return_tensors='pt',
+            max_length=int(feature_extractor.sampling_rate * MAX_DURATION),
+            truncation=True,
+            padding=True,
+            return_attention_mask=True
+        )
+        return {INPUT_NAME: inputs[INPUT_NAME]}
+
+    feature_extractor.do_normalize = False  # we set normalization to False in order to calculate the mean + std of the dataset
+    mean = []
+    std = []
+
+    dataset = get_ast_dataset()
+    dataset['train'].set_transform(preprocess_audio, output_all_columns=False)
+
+    if config['model']['know_stats']:
+        feature_extractor.mean = -4.556313  # np.mean(mean)
+        feature_extractor.std = 4.4429035  # p.mean(std)
+        feature_extractor.do_normalize = True
+    else:
+        for i, (audio_input, labels) in tqdm(enumerate(dataset['train']),
+                                             total=len(dataset['train']),
+                                             desc='Processing Audio'):
+            cur_mean = torch.mean(dataset['train'][i][audio_input])
+            cur_std = torch.std(dataset['train'][i][audio_input])
+            mean.append(cur_mean)
+            std.append(cur_std)
+
+        feature_extractor.mean = np.mean(mean)
+        feature_extractor.std = np.mean(std)
+        feature_extractor.do_normalize = True
+
+    test_dataset = dataset['test']
+    test_dataset = test_dataset.cast_column('audio', Audio(sampling_rate=feature_extractor.sampling_rate))
+
+    test_dataset = test_dataset.rename_column('audio', INPUT_NAME)
+    test_dataset.set_transform(preprocess_audio, output_all_columns=False)
+
+    trainer = Trainer(
+        model=model,
+        args=TrainingArguments(
+            output_dir='./results',
+            per_device_eval_batch_size=128
+        )
+    )
+
+    test_predictions = trainer.predict(test_dataset)
+    logits = test_predictions.predictions
+    probabilities = torch.softmax(torch.tensor(logits), dim=-1).numpy()
+    class_0 = probabilities[:, 0]
+    class_1 = probabilities[:, 1]
+
+    test_dir = config['data']['test_dir']
+    test_audio_files = [os.path.join(test_dir, file) for file in os.listdir(test_dir) if file.endswith('.wav')]
+    idxs = [int(test_audio_files[i].split('/')[-1][:-4]) for i in range(len(test_audio_files))]
+
+    df = pd.DataFrame({
+        'Id': idxs,
+        'Predicted': class_0
+    }).sort_values(by=['Id'])
+
+    df['Predicted'] = (df['Predicted'] > 0.5).astype(int)
+    df.to_csv('submission_hubert.csv', index=False)

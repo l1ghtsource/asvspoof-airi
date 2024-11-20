@@ -1,0 +1,13 @@
+model:
+  name: 'facebook/hubert-large-ls960-ft'
+  num_labels: 2
+  sampling_rate: 16000
+  max_duration: 10
+  know_stats: true
+  num_epochs: 1
+  learning_rate: 0.00005
+  batch_size: 8
+  time_limit: 8
+
+data:
+  test_dir: 'competiton/audio_split/test'
