@@ -499,8 +499,7 @@ def train_hubert(config):
             return_tensors='pt',
             max_length=int(SAMPLING_RATE * MAX_DURATION),
             truncation=True,
-            padding=True,
-            return_attention_mask=True
+            padding=True
         )
 
         output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['labels'])}
@@ -554,8 +553,7 @@ def train_hubert(config):
             return_tensors='pt',
             max_length=int(SAMPLING_RATE * MAX_DURATION),
             truncation=True,
-            padding=True,
-            return_attention_mask=True
+            padding=True
         )
 
         output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['labels'])}

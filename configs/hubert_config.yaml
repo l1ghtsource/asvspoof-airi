@@ -2,7 +2,7 @@ model:
   name: 'facebook/hubert-large-ls960-ft'
   num_labels: 2
   sampling_rate: 16000
-  max_duration: 10
+  max_duration: 5
   know_stats: true
   num_epochs: 1
   learning_rate: 0.00005
