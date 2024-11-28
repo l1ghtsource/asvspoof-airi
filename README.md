@@ -39,5 +39,5 @@ The Audio Spectral Transformer and SSL Wav2Vec outperformed other models with ne
 - [GitHub Repository](https://github.com/l1ghtsource/asvspoof-airi)
 
 ## Notebooks
-- [AST](notebooks/ast-inference [0.01384].ipynb) - 0.01384 EER on Public LB
-- [SSL](notebooks/ssl-inference-3plus2-epochs [0.02925].ipynb) - 0.02925 EER on Public LB
+- [AST](notebooks/ast-inference%20[0.01384].ipynb) - 0.01384 EER on Public LB
+- [SSL](notebooks/ssl-inference-3plus2-epochs%20[0.02925].ipynb) - 0.02925 EER on Public LB
