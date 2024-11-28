@@ -86,7 +86,6 @@ def inference_ast(config, checkpoint):
         'Predicted': class_0
     }).sort_values(by=['Id'])
 
-    df['Predicted'] = (df['Predicted'] > 0.5).astype(int)
     df.to_csv('submission_ast.csv', index=False)
 
 
@@ -203,7 +202,6 @@ def inference_whisper(config, checkpoint):
         'Id': idxs,
         'Predicted': preds
     }).sort_values(by=['Id'])
-    df.Predicted = (df.Predicted > 0.5).astype(int)
 
     df.to_csv('submission_whisper.csv', index=False)
 
@@ -287,5 +285,4 @@ def inference_hubert(config, checkpoint):
         'Predicted': class_0
     }).sort_values(by=['Id'])
 
-    df['Predicted'] = (df['Predicted'] > 0.5).astype(int)
     df.to_csv('submission_hubert.csv', index=False)
