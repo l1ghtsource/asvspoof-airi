@@ -3,11 +3,6 @@
 ## Overview
 This project investigates advanced techniques for detecting audio spoofing using state-of-the-art self-supervised learning (SSL) and transformer architectures. It evaluates various models on ASVspoof benchmark datasets, demonstrating significant improvements in distinguishing between genuine and synthesized speech.
 
-### Research Goals
-- Evaluate deep learning architectures for audio spoof detection.
-- Analyze model performance and computational efficiency.
-- Develop robust methods to differentiate synthetic from genuine speech.
-
 ## Models Evaluated
 1. **Wav2Vec 2.0**
 2. **HuBERT**
@@ -38,15 +33,11 @@ The Audio Spectral Transformer and SSL Wav2Vec outperformed other models with ne
 | Pretrained Wav2Vec        | 0.77492       | 0.845     | 0.725  | 0.780    |
 | WavLM Base                | 1.87658       | 0.820     | 0.690  | 0.750    |
 
-## Future Work
-- Ensemble learning for improved robustness
-- Lightweight architectures for real-time systems
-- Adversarial robustness in spoof detection
-
 ## Links
 - [AST Spoofing Model (HuggingFace)](https://huggingface.co/lightsource/ast-spoofing-airi)
 - [SSL Wav2Vec Model (HuggingFace)](https://huggingface.co/lightsource/ssl-w2v-psfan-spoofing-airi)
 - [GitHub Repository](https://github.com/l1ghtsource/asvspoof-airi)
 
-## Acknowledgments
-Special thanks to SafeSpeak-2024 and ASVspoof dataset organizers for providing resources crucial to this research.
+## Notebooks
+- [AST](notebooks/ast-inference [0.01384].ipynb) - 0.01384 EER on Public LB
+- [SSL](notebooks/ssl-inference-3plus2-epochs [0.02925].ipynb) - 0.02925 EER on Public LB
